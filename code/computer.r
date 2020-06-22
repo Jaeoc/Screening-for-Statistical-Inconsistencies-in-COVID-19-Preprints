@@ -1,9 +1,9 @@
 #********************************************************************************
 
-##Project: Screening for staistical Inconsistencies in COVID-19 reprints
-##Script purpose: Code to check consistency of reported values coded from preprints
+##Project: Screening for statistical inconsistencies in COVID-19 preprints
+##Script purpose: Code to check consistency of reported values in preprints
 ##Code: 
-#Anton Olsson Collentine (j.a.e.olssoncollentine@uvt.nl)
+#Anton Olsson-Collentine (j.a.e.olssoncollentine@uvt.nl)
 #Robbie van Aert
 
 
@@ -18,8 +18,8 @@ source("functions_checking.R")
 #********************************************************************************
 #Additional functions----
 #********************************************************************************
-#Move these functions to the file "functions_checking.r" after finishing amending
-#the remaining functions
+#For a cleaner script, move these functions to the file "functions_checking.r"
+#after finishing amending the remaining functions
 
 check_percentile <- function(percentage, numerator, denominator){
   abs(percentage - numerator / denominator * 100) <= 0.1 #use tolerance == 0.1% to account for rounding errors
@@ -27,7 +27,8 @@ check_percentile <- function(percentage, numerator, denominator){
 
 
 #reformulated this function to fit
-check_test_diag <- function(percentage, tp, tn, fp, fn, which_diag = c("accu", "sens", "spec",  "ppv", "npv")){
+check_test_diag <- function(percentage, tp, tn, fp, fn,
+                            which_diag = c("accu", "sens", "spec",  "ppv", "npv")){
   
   
   ### Arguments:
@@ -57,7 +58,7 @@ check_test_diag <- function(percentage, tp, tn, fp, fn, which_diag = c("accu", "
 }
 
 
-check_sample_size <- function(total_sample, subgroup_cols, dat){
+check_sample_size <- function(total_sample, subgroup_cols, dat){ #also checks marginals
   
   sum_subgroups <- rowSums(dat[,subgroup_cols], na.rm = TRUE)
   
@@ -65,7 +66,9 @@ check_sample_size <- function(total_sample, subgroup_cols, dat){
   
 }
 
-checker <- function(split_x){ #can probably be improved
+
+#**Wrapper functions----
+checker <- function(split_x){ #takes as input a dataframe with a single type of type_stat
   #split by type_stat before applying function
   
   if(split_x$type_stat[1] == "perc_ratio"){
@@ -89,42 +92,66 @@ checker <- function(split_x){ #can probably be improved
                                      fp = split_x$fp,
                                      fn = split_x$fn,
                                      which_diag = split_x$type_stat[1])
+    
+  } else { #temporary solution, see preprint[[5]], which wrote type_stat = "pec_ratio"
+    warning("type_stat misspelt in at least one case, examine 'check' variable for 'SPELLING' value")
+    split_x$check <- "SPELLING" 
   }
   
-  split_x #out
+  split_x #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
   
 }
 
 
-split_check_bind <- function(x){
+split_check_bind <- function(x){ 
+  #takes as input a dataframe with one or multiple types of type_stat to check
   
   split_x <- split(x, x$type_stat)
-  if(is.data.frame(x)) checker(x) #If only one type of type_stat
-  else {
-    split_x <- lapply(split_x, checker)
-    do.call(rbind, split_x)
-  }
+  split_x <- lapply(split_x, checker)
+  do.call(rbind, split_x)
   
-  
+  #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
 }
 
 
 #********************************************************************************
-#Run checks----
+#Run checks and save results----
 #********************************************************************************
 
-#Load, read, and check codebooks
-codebook_files <- list.files("../pilot_codebooks", full.names = TRUE)
+#Get file paths to completed codebooks
+codebook_files <- list.files("../data/pilot_codebooks", full.names = TRUE)
 #Change "pilot_codebooks" to relevant folder later
-preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1)
-#Drop rows with only Nas. NB, type_stat is read as empty but all other empty cells as NAs 
-preprints <- lapply(preprints, function(x) x[!is.na(x$page),]) #drop
 
+#Read completed codebooks
+preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1, stringsAsFactors = FALSE)
+#NB, in type_stat column an empty cell is read as "" but in all other columns as NA 
+#If we don't use stringsAsFactors = FALSE this leads to problems. Maybe worth
+#fixing when updating the excel template
 
+#Drop rows with only Nas. Because some empty cells not coded as NA must can't use
+#preprints <- lapply(preprints, function(x) x[!rowSums(is.na(x)) == ncol(x),]) 
+#But must use something like the below (which may be a little less robust)
+preprints <- lapply(preprints, function(x)  x[!is.na(x$page),]) #drop empty rows
+  
 
-#Check
+#Check values
 preprint_results <- lapply(preprints, split_check_bind)
 
-#problems:
-#also drop all columns with only empty?
-#not all sample size check for [[7]] returns NA for some reason
+#drop empty columns for more readable results. 
+#because sample_size checker function uses all columns value1:20 can't drop earlier
+#EDIT: dropping columns becomes problematic if we wish to collate results
+#Better to leave for now
+#preprint_results <- lapply(preprint_results, function(x) x[,!colSums(is.na(x)) == nrow(x)])
+
+#Get preprint IDs 
+preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and . ('.' because of .csv)
+preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
+
+#Append preprint IDs to each dataframe
+for(preprint in seq_along(preprint_ID)){
+  preprint_results[[preprint]]$ID <- preprint_ID[preprint]
+}
+
+#Collate and save dataset for analysis
+preprint_results <- do.call(rbind, preprint_results)
+write.csv(preprint_results, "../data/checked_results.csv", row.names = FALSE)
