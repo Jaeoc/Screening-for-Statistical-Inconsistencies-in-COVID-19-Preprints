@@ -1,99 +1,121 @@
-################################################################################
-##### FUNCTIONS FOR CHECKING RESULTS REPORTED IN PREPRINTS ON              #####
-##### COVID-19 SARS-CoV-2                                                  ##### 
-################################################################################
+#********************************************************************************
 
-### Function to compute the accuracy, sensitivity, specificity, positive 
-# predictive value, and negative predictive value
-test_diag <- function(tp, tn, fp, fn, test_dec)
-{
+##Project: Screening for statistical inconsistencies in COVID-19 preprints
+##Script purpose: Source functions for checking consistency of reported results
+##Code: 
+#Anton Olsson-Collentine (j.a.e.olssoncollentine@uvt.nl) &
+#Robbie van Aert
+#********************************************************************************
+
+
+#********************************************************************************
+#Internal functions----
+#********************************************************************************
+#All functions in this section output a TRUE/FALSE value
+#except the small helper function r2t which outputs a t-statistic
+
+
+#Check reported percentage
+check_percentage <- function(percentage, numerator, denominator){
+  abs(percentage - numerator / denominator * 100) <= 0.1 #use tolerance == 0.1% to account for rounding errors
+}
+
+
+#Check reported Accuracy, Sensitivity, Specificity, or
+#positive/negative predictive values
+check_test_diag <- function(percentage, tp, tn, fp, fn,
+                            which_diag = c("accu", "sens", "spec",  "ppv", "npv")){
+  
+  
   ### Arguments:
+  #     - percentage = value to compare against
   #     - tp = number of true positives
   #     - tn = number of true negatives
   #     - fp = number of false positives
   #     - fn = number of false negatives
-  #     - test_dec = number of digits to be printed
+  #     - which_diag = test_diag (sens, spec, accu, ppv, npv)
   
-  accu <- (tp+tn)/(tp+tn+fp+fn) # Accuracy
-  sens <- tp/(tp+fn) # Sensitivity
-  spec <- tn/(tn+fp) # Specificity
-  ppv <- tp/(tp+fp) # Positive predictive value
-  npv <- tn/(tn+fn) # Negative predictive value
+  which_diag <- match.arg(which_diag)
   
-  return(print(data.frame(accu = accu, sens = sens, spec = spec, ppv = ppv, 
-                          npv = npv), digits = test_dec))
-  
-}
-
-### Example using data in Figure 1E for the "Normal" category, p. 15 of 
-# Fu et al. (2020), file "ID_964.pdf". Results of this analysis are reported in 
-# Supplementary Table 1 on p. 16.
-# tp <- 4945
-# tn <- 2430+2408+2426+2491
-# fp <- 13+19+31+10
-# fn <- 11+14+15+9
-# 
-# test_diag(tp = tp, tn = tn, fp = fp, fn = fn)
-
-################################################################################
-
-### Function to compute the degrees of freedom (df) based on sample size and 
-# test
-
-df_n <- function(n, 
-                 test = c("t_1sample",
-                          "t_2sample",
-                          "correlation",
-                          "chi2_2by2",
-                          "anova_1way"),
-                 n_groups)
-{
-  ### Arguments:
-  #     - n = the total sample size
-  #     - test = the type of test for which df should be calculated
-  #        * t_1sample: a one-sample (or paired/dependent samples) t-test
-  #        * t_2sample: a two-sample (or unpaired/independenten samples) t-test
-  #        * correlation: a correlation
-  #        * chi2_2by2: a chi-square test related to a 2 by 2 frequency table
-  #        * anova_1way: a one-way ANOVA (i.e., no interaction terms)
-  #     - n_groups = number of groups/conditions being compared. 
-  #       relevant for a 1-way ANOVA. Can be left blank for other tests
-  
-  if(test == "t_1sample"){
-    
-    df <- n - 1
-    return(df)
-    
-  } else if(test == "t_2sample" | test == "correlation"){
-    
-    df <- n - 2
-    return(df)
-    
-  } else if(test == "chi2_2by2"){
-    
-    df <- 1
-    return(df)
-    
-  } else if(test == "anova_1way"){
-    
-    df1 <- n_groups - 1
-    df2 <- n - n_groups
-    
-    return(c(df1 = df1, df2 = df2))
+  if(which_diag == "accu"){
+    coded <- (tp+tn)/(tp+tn+fp+fn) # Accuracy
+  } else if(which_diag == "sens"){
+    coded <- tp/(tp+fn) # Sensitivity
+  } else if(which_diag == "spec"){
+    coded <- tn/(tn+fp) # Specificity
+  } else if(which_diag == "ppv"){
+    coded <- tp/(tp+fp) # Positive predictive value
+  } else if (which_diag == "npv"){
+    coded <- tn/(tn+fn) # Negative predictive value
   }
+  
+  abs(percentage - coded*100) <= 0.1 #use tolerance == 0.1% to account for rounding errors
+  
 }
 
-################################################################################
+#Check whether reported total sample size corresponds to subgroups
+#also applicable to marginal values
+check_sample_size <- function(total_sample, subgroup_cols, dat){ 
+  
+  sum_subgroups <- rowSums(dat[,subgroup_cols], na.rm = TRUE)
+  
+  (total_sample - sum_subgroups) == 0
+  
+}
 
-### Function to compute the p-value based on the reported test statistic and 
+
+#Function to check reported ratios against computed
+check_ratio <- function(reported, a, b, c, d,
+                        ratio = c("odds_ratio", "risk_ratio", "risk_diff"))
+{
+  #********************************************
+  #           #   Out1      Out2    # Total  #
+  #********************************************
+  # Group 1   #     a        b      #   n1   #
+  # Group 2   #     c        d      #   n2   #
+  #********************************************
+  #https://handbook-5-1.cochrane.org/chapter_9/box_9_2_a_calculation_of_risk_ratio_rr_odds_ratio_or_and.htm
+  
+  ratio = match.arg(ratio)
+  
+  if(ratio = "odds_ratio"){
+    
+    p1 <- a/c
+    p2 <- b/d
+    computed = p1/p2
+    
+  }else if(ratio == "risk_ratio"){
+    
+    p1 <- a/(a+b)
+    p2 <- c/(c+d)
+    computed <- p1/p2
+    
+  }else if(ratio = "risk_diff"){
+    
+    p1 <- a/(a+b)
+    p2 <- c/(c+d)
+    computed <- p1 - p2
+  }
+  
+  abs(reported - computed) <= 0.01
+  #check that rounding is correct to the second decimal
+}
+
+
+#Helper function for 'check_p' function below
+#transform correlation to t-statistic
+r2t <- function(r, df){
+  r / (sqrt((1 - r^2) / df))
+}
+
+### Function to check the reported p-value based on the reported test statistic and 
 # degrees of freedom
-
-compute_p <- function(test_type = c("t", "F", "z", "cor", "chi2", "Q"),
-                      test_stat,
-                      df1 = NA,
-                      df2 = NA,
-                      test_dec,
-                      two_tailed = TRUE)
+check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
+                    reported_p,
+                    test_stat,
+                    df1 = NA,
+                    df2 = NA,
+                    two_tailed = TRUE)
 {
   ### Arguments:
   #     - test_type: the type of test you want to calculate the p-value for
@@ -103,123 +125,135 @@ compute_p <- function(test_type = c("t", "F", "z", "cor", "chi2", "Q"),
   #        * cor = correlation
   #        * chi2 = chi-squared-test
   #        * Q = Q-test
+  #     - reported_p: reported p-value
   #     - test_stat: the test statistic
   #     - df1: degrees of freedom related to the design
   #     - df2: degrees of freedom related to the observations
-  #     - test_dec: the number of decimals with which the test statistic was 
-  #       reported. If t = 2.20, test_dec == 2
   #     - two_tailed: do you want to calculate the two-tailed p-value
   
-  # take correct rounding into account
-  # first calculate range of test statistics
-  lower <- test_stat - (.5 / 10 ^ test_dec)
-  upper <- test_stat + (.5 / 10 ^ test_dec)
+  
+  #EDIT: we can't check number of decimals automatically because is set to
+  #consistent across a column. May just have to decide on a tolerance in the
+  #final output p-value
+  
+  #EDIT: instead of having checks of the DFs here, it is better to have them in
+  #the wrapper function "checker"
   
   # compute p-values ---------------------------------------------------------
   
   # for each test, calculate the p-value that belongs to the observed test
-  # statistic, but also the range of p-values that should be considered 
-  # correct, if we take correct rounding of the test statistic into account
   
   if(test_type == "t"){
     
-    if(is.na(df2) & !is.na(df1)) stop("df2 is missing. Did you accidentally fill them out under df1?")
-    
-    lower_p <- pt(-1 * abs(upper), df2)
     computed <- pt(-1 * abs(test_stat), df2)
-    upper_p <- pt(-1 * abs(lower), df2)
     
   } else if(test_type == "F"){
     
-    lower_p <- pf(upper, df1, df2, lower.tail = FALSE)
     computed <- pf(test_stat, df1, df2, lower.tail = FALSE)
-    upper_p <- pf(lower, df1, df2, lower.tail = FALSE)
     
   } else if(test_type == "z"){
     
-    lower_p <- pnorm(abs(upper), lower.tail = FALSE)
     computed <- pnorm(abs(test_stat), lower.tail = FALSE)
-    upper_p <- pnorm(abs(lower), lower.tail = FALSE)
     
-  } else if(test_type == "cor"){
+  } else if(test_type == "r"){
     
-    if(is.na(df2) & !is.na(df1)) stop("df2 is missing. Did you accidentally fill them out under df1?")
-    
-    t_lower <- r2t(lower, df2)
     t <- r2t(test_stat, df2)
-    t_upper <- r2t(upper, df2)
-    
-    lower_p <- pt(-1 * abs(t_upper), df2)
     computed <- pt(-1 * abs(t), df2)
-    upper_p <- pt(-1 * abs(t_lower), df2)
     
   } else if(test_type == "chi2" | test_type == "Q"){
     
-    if(is.na(df1) & !is.na(df2)) stop("df1 is missing. Did you accidentally fill them out under df2?")
-    
-    lower_p <- pchisq(upper, df1, lower.tail = FALSE)
     computed <- pchisq(test_stat, df1, lower.tail = FALSE)
-    upper_p <- pchisq(lower, df1, lower.tail = FALSE)
     
   }
   
   # compute two-tailed ------------------------------------------------------
   
   if (!is.na(computed) &
-      (test_type == "t" | test_type == "Z" | test_type == "r") & 
+      (test_type == "t" | test_type == "z" | test_type == "r") & 
       two_tailed) {
     
-    lower_p <- lower_p * 2
     computed <- computed * 2
-    upper_p <- upper_p *2
     
   }
+  # Check and return ------------------------------------------------------------------
   
-  # return ------------------------------------------------------------------
-  
-  return(list(computed_p = computed,
-              range = data.frame(lowest_p = lower_p,
-                                 highest_p = upper_p)))
+  abs(reported_p - computed) <= 0.001 
+  #use tolerance == 0.001 to account for rounding errors
+  #in other words, check that rounding to the third decimal is correct but not beyond
 }
 
 
-# Helper function to transform correlations into t-values by use of raw r and 
-# degrees of freedom.
-r2t <- function(r, df){
-  t <- r / (sqrt((1 - r^2) / df))
-  return(t)
+#********************************************************************************
+#Wrapper functions----
+#********************************************************************************
+
+#Main function that checks reported statistics against recomputed
+checker <- function(split_x){
+  #takes as input a dataframe with a single type of type_stat
+  #split by type_stat before applying function
+  
+  if(split_x$type_stat[1] == "perc_ratio"){
+    
+    split_x$check <- check_percentage(percentage = split_x$reported,
+                                      numerator = split_x$num,
+                                      denominator = split_x$denom)
+    
+    
+  } else if(split_x$type_stat[1] %in% c("sample_size", "marginals")){ #needs to be improved so we can separate the two in the report
+    
+    split_x$check <- check_sample_size(total_sample = split_x$reported,
+                                       subgroup_cols = paste0("value", 1:20),
+                                       dat = split_x)
+    
+  }else if(split_x$type_stat[1] %in% c("accu", "sens", "spec",  "ppv", "npv")){
+    
+    split_x$check <- check_test_diag(percentage = split_x$reported, 
+                                     tp = split_x$tp,
+                                     tn = split_x$tn,
+                                     fp = split_x$fp,
+                                     fn = split_x$fn,
+                                     which_diag = split_x$type_stat[1])
+    
+  } else if(split_x$type_stat[1] %in% c("odds_ratio", "risk_ratio", "risk_diff")){
+    
+    split_x$check <- check_ratio(reported = split_x$reported,
+                                 a = split_x$a, b = split_x$b, c = split_x$c, d = split_x$d,
+                                 ratio = split_x$type_stat[1])
+    
+  }else if(split_x$type_stat[1] %in% c("t", "F", "z", "r", "chi2", "Q")){
+    
+    split_x$check <- check_p(test_type = split_x$type_stat[1],
+                             reported_p = split_x$reported,
+                             test_stat = split_x$test_stat,
+                             df1 = split_x$df1,
+                             df2 = split_x$df2,
+                             two_tailed = TRUE)
+    
+  }else { #If misspelt, see preprint[[5]], which wrote type_stat = "pec_ratio".
+    warning("type_stat misspelt in at least one case, examine 'check' variable for 'SPELLING' value")
+    split_x$check <- "SPELLING" 
+  }
+  
+  split_x #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
+  
 }
 
-################################################################################
 
-### Function for computing t-statistic for two-independent samples design and 
-# both variances assumed to be equal and unequal
-indep_t <- function(m1, m2, sd1, sd2, n1, n2)
-{
+#Wrapper function to the above to make it applicable to multiple types of statistics
+split_check_bind <- function(x){ 
+  #takes as input a dataframe with one or multiple types of type_stat to check
   
-  ### Variances assumed to be equal
-  pool <- sqrt((sd1^2*(n1-1)+sd2^2*(n2-1))/(n1+n2-2)) # Pooled standard deviation
-  se_equal <- pool*sqrt(1/n1+1/n2) # Standard error 
-  tval_equal <- (m1-m2)/se_equal
+  split_x <- split(x, x$type_stat)
+  split_x <- lapply(split_x, checker)
+  do.call(rbind, split_x)
   
-  ### Variances assumed to be unequal
-  se_unequal <- sqrt(sd1^2/n1+sd2^2/n2) # Standard error
-  tval_unequal <- (m1-m2)/se_unequal
-  
-  return(data.frame(tval_equal, se_equal, tval_unequal, se_unequal))
+  #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
 }
 
-# ### Example using data of preprint ID_977, Table 2, p. 11, gender
-# m1 <- c(7.6, 7.56, 7.64)
-# m2 <- c(8, 8.04, 7.96)
-# sd1 <- c(7.5, 7.46, 7.54)
-# sd2 <- c(8.1, 8.06, 8.14)
-# n1 <- 1068
-# n2 <- 531
-# 
-# indep_t(m1 = m1, m2 = m2, sd1 = sd1, sd2 = sd2, n1 = n1, n2 = n2)
 
-################################################################################
+#********************************************************************************
+#Other functions----
+#********************************************************************************
 
 ### Function to sample two tables that need to be extracted from a preprint
 sample_tab <- function(nr_tab, pp_ID)
@@ -238,77 +272,3 @@ sample_tab <- function(nr_tab, pp_ID)
 # ### Example
 # sample_tab(nr_tab = 4, pp_ID = 977)
 
-################################################################################
-
-### Function for computing Chi^2 statistic without and with continuity correction
-# (only in case of a 2x2 table)
-chisq_test <- function(col1, col2, text_dec)
-{
-  ### We assume that the contingency table has the following structure:
-  
-  #################################
-  #          #   Y = 0     Y = 1  #
-  #################################
-  # X = 0    #     a         b    #
-  # X = 1    #     c         d    #
-  # X = ...  #    ...       ...   #
-  #################################
-  
-  ### Arguments:
-  # - col1 = cell frequencies in the first column of the contingency table
-  # - col2 = cell frequencies in the second column of the contingency table
-  # - text_dec = number of decimals are used for reporting the chi^2-statistic
-  
-  x <- matrix(c(col1, col2), ncol = 2)
-  
-  chi2 <- round(chisq.test(x)$statistic, text_dec)
-  
-  chi2_cor <- ifelse(length(col1) == 2, 
-                     round(chisq.test(x, correct = FALSE)$statistic, text_dec), NA)
-  
-  return(data.frame(chi2 = as.numeric(chi2), chi2_cor = as.numeric(chi2_cor)))
-}
-
-# ### Example
-# col1 <- c(342, 205)
-# col2 <- c(726, 326)
-# chisq_test(col1 = col1, col2 = col2, text_dec = 2)
-
-################################################################################
-
-### Function for computing effect sizes based on binary data. Currently, relative 
-# risk is implemented
-bin_es <- function(a, b, c, d, n1, n2, text_dec)
-{
-  #############################################
-  #           #   Out1      Out2    # Total  #
-  #############################################
-  # Group 1   #     a        b      #   n1   #
-  # Group 2   #     c        d      #   n2   #
-  #############################################
-  
-  ### Check which arguments are submitted and compute cell frequencies if necessary
-  if (!missing(n1) & !missing(n2))
-  {
-    if (!missing(a) & !missing(c))
-    {
-      b <- n1-a
-      d <- n2-c
-    } else if (!missing(b) & !missing(d))
-    {
-      a <- n1-b
-      c <- n2-d
-    }
-  }
-  
-  p1 <- a/(a+b)
-  p2 <- c/(c+d)
-  rr <- round(p1/p2, text_dec)
-  
-  return(data.frame(rr))
-}
-
-# ### Example
-# bin_es(a = 16, b = 99-16, c = 18, d = 101-18, text_dec = 3)
-# bin_es(a = 16, n1 = 99, c = 18, n2 = 101, text_dec = 3)
-# bin_es(b = 99-16, n1 = 99, d = 101-18, n2 = 101, text_dec = 3)
