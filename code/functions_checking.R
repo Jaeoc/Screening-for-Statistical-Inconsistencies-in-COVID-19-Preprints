@@ -65,35 +65,36 @@ check_sample_size <- function(total_sample, subgroup_cols, dat){
 
 
 #Function to check reported ratios against computed
-check_ratio <- function(reported, a, b, c, d,
+check_ratio <- function(reported, n11, n12, n21, n22,
                         ratio = c("odds_ratio", "risk_ratio", "risk_diff"))
 {
+  ### ROBBIE: NOW USING n11, n12, n21, AND n22 INSTEAD OF a, b, c, AND d. THIS 
+  # IS BETTER BECAUSE c ALSO REFERS TO CONCATINATING OBJECTS
+  
   #********************************************
-  #           #   Out1      Out2    # Total  #
+  #           #   Out1    Out2    # Total  #
   #********************************************
-  # Group 1   #     a        b      #   n1   #
-  # Group 2   #     c        d      #   n2   #
+  # Group 1   #   n11      n12      #   n1   #
+  # Group 2   #   n21      n22      #   n2   #
   #********************************************
   #https://handbook-5-1.cochrane.org/chapter_9/box_9_2_a_calculation_of_risk_ratio_rr_odds_ratio_or_and.htm
   
-  ratio = match.arg(ratio)
-  
-  if(ratio = "odds_ratio"){
+  if(ratio == "odds_ratio"){
     
-    p1 <- a/c
-    p2 <- b/d
-    computed = p1/p2
+    p1 <- n11/n12
+    p2 <- n21/n22
+    computed <- p1/p2
     
   }else if(ratio == "risk_ratio"){
     
-    p1 <- a/(a+b)
-    p2 <- c/(c+d)
+    p1 <- n11/(n11+n12)
+    p2 <- n21/(n21+n22)
     computed <- p1/p2
     
-  }else if(ratio = "risk_diff"){
+  }else if(ratio == "risk_diff"){
     
-    p1 <- a/(a+b)
-    p2 <- c/(c+d)
+    p1 <- n11/(n11+n12)
+    p2 <- n21/(n21+n22)
     computed <- p1 - p2
   }
   
@@ -138,6 +139,8 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   
   #EDIT: instead of having checks of the DFs here, it is better to have them in
   #the wrapper function "checker"
+  
+  ### ROBBIE: WE MAY WANT TO CHANGE THIS FUNCTION TO AVOID USING t AND F AS OBJECTS.
   
   # compute p-values ---------------------------------------------------------
   
@@ -217,10 +220,15 @@ checker <- function(split_x){
   } else if(split_x$type_stat[1] %in% c("odds_ratio", "risk_ratio", "risk_diff")){
     
     split_x$check <- check_ratio(reported = split_x$reported,
-                                 a = split_x$a, b = split_x$b, c = split_x$c, d = split_x$d,
+                                 n11 = split_x$n11, n12 = split_x$n12, 
+                                 n21 = split_x$n21, n22 = split_x$n22,
                                  ratio = split_x$type_stat[1])
     
   }else if(split_x$type_stat[1] %in% c("t", "F", "z", "r", "chi2", "Q")){
+    
+    ### ROBBIE: ASSUMING THAT ALL P-VALUES ARE TWO-TAILED IS TRICKY. MAYBE 
+    # COMPUTING P-VALUES BOTH ONE AND TWO-TAILED AND IF BOTH ARE DIFFERENT 
+    # THEN CONCLUDING THAT IT IS INCONSISTENT.
     
     split_x$check <- check_p(test_type = split_x$type_stat[1],
                              reported_p = split_x$reported,
@@ -244,7 +252,16 @@ split_check_bind <- function(x){
   #takes as input a dataframe with one or multiple types of type_stat to check
   
   split_x <- split(x, x$type_stat)
+  
+  ### ROBBIE: ALTHOUGH I REALLY LIKE THE lapply() IMPLEMENTATION HERE, IT MIGHT 
+  # BE BETTER TO USE A FOR LOOP FOR THIS. THE REASON IS THAT WE CAN VERY QUICKLY 
+  # TRACE BACK WHERE type_stat WAS MISSPELLED IN CASE OF A FOR LOOP. THAT IS, 
+  # WE CAN THROW THE WARNING THAT IT IS IN PREPRINT NUMBER X, LINE Y, AND IT WAS
+  # MISSPELLED AS "pec_ratio". THIS CANNOT EASILY BE DONE WITH lapply().
+  
   split_x <- lapply(split_x, checker)
+  
+  names(split_x) <- NULL # To avoid automatically assigning row names
   do.call(rbind, split_x)
   
   #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
