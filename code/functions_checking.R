@@ -3,8 +3,8 @@
 ##Project: Screening for statistical inconsistencies in COVID-19 preprints
 ##Script purpose: Source functions for checking consistency of reported results
 ##Code: 
-#Anton Olsson-Collentine (j.a.e.olssoncollentine@uvt.nl) &
-#Robbie van Aert
+#Anton Olsson-Collentine (j.a.e.olssoncollentine@uvt.nl), Robbie van Aert &
+#Michèle Nuijten
 #********************************************************************************
 
 
@@ -18,12 +18,15 @@
 get_rounding_decimals <- function(reported){ 
   #NB! Assumes the "reported" column was read in as a character variable!
   
-  a <- strsplit(reported, "\\.")[[1]]
+  a <- strsplit(reported, "\\.")
   #split by decimal point, if there is one
   
-  if(length(a) == 2) nchar(a[2]) else 0
-  #if there's a decimal,  we get two vectors from the strsplit
+  decimals <- lapply(a, function(x) if(length(x) == 2) nchar(x[2]) else 0)
+  #the lapply is just to vectorize the function so it applies to each reported value
+  #if there's a decimal,  we get two vectors from the strsplit 
   #if so count characters after decimal, else if no decimal return 0
+  
+  unlist(decimals) #return vector of decimals per reported value
 }
 
 
@@ -37,7 +40,6 @@ r2t <- function(r, df){
 #********************************************************************************
 
 #All functions in this section output a TRUE/FALSE value
-#except the small helper function r2t which outputs a t-statistic
 #Because the reported value is loaded as a character vector it must always be
 #converted into a numeric value before comparison
 
@@ -275,9 +277,12 @@ checker <- function(split_x){
   
 }
 
+#temporary
+preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and . ('.' because of .csv)
+preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
 
 #Wrapper function to the above to make it applicable to multiple types of statistics
-split_check_bind <- function(x){ 
+split_check_bind <- function(x, preprint_ID){ 
   #takes as input a dataframe with one or multiple types of type_stat to check
   
   split_x <- split(x, x$type_stat)
@@ -294,10 +299,8 @@ split_check_bind <- function(x){
   #Might even be better to implement at a higher level, the user level?
   # -> No, would make things messy
   
-  #For each doi, checker
-  
   split_x <- lapply(split_x, checker)
-  
+  p
   names(split_x) <- NULL # To avoid automatically assigning row names
   do.call(rbind, split_x)
   
