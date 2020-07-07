@@ -18,8 +18,6 @@
 get_rounding_decimals <- function(reported){ 
   #NB! Assumes the "reported" column was read in as a character variable!
   
-  if(!grepl("[[:digit:]]", reported)) stop("No numeric value in 'reported' column")
-  
   a <- strsplit(reported, "\\.")[[1]]
   #split by decimal point, if there is one
   
@@ -40,6 +38,8 @@ r2t <- function(r, df){
 
 #All functions in this section output a TRUE/FALSE value
 #except the small helper function r2t which outputs a t-statistic
+#Because the reported value is loaded as a character vector it must always be
+#converted into a numeric value before comparison
 
 #Check reported percentage
 check_percentage <- function(percentage, numerator, denominator){
@@ -47,7 +47,7 @@ check_percentage <- function(percentage, numerator, denominator){
   computed <- numerator / denominator * 100
   
   #compare computed and reported value with same number of decimals
-  percentage - round(computed, decimals) == 0
+  as.numeric(percentage) - round(computed, decimals) == 0
 }
 
 
@@ -81,7 +81,7 @@ check_test_diag <- function(percentage, tp, tn, fp, fn,
   
   #compare computed and reported value with same number of decimals
   decimals <- get_rounding_decimals(percentage)
-  percentage - round(coded*100, decimals) == 0
+  as.numeric(percentage) - round(coded*100, decimals) == 0
   
 }
 
@@ -91,7 +91,7 @@ check_sample_size <- function(total_sample, subgroup_cols, dat){
   
   sum_subgroups <- rowSums(dat[,subgroup_cols], na.rm = TRUE)
   
-  (total_sample - sum_subgroups) == 0
+  as.numeric(total_sample) - sum_subgroups == 0
   
 }
 
@@ -132,7 +132,7 @@ check_ratio <- function(reported, n11, n12, n21, n22,
   
   #compare computed and reported value with same number of decimals
   decimals <- get_rounding_decimals(reported)
-  reported - round(computed, decimals) == 0
+  as.numeric(reported) - round(computed, decimals) == 0
 }
 
 
@@ -211,7 +211,7 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   
   #compare computed and reported value with same number of decimals
   decimals <- get_rounding_decimals(reported_p)
-  reported_p - round(computed, decimals) == 0 
+  as.numeric(reported_p) - round(computed, decimals) == 0 
 }
 
 
@@ -293,6 +293,8 @@ split_check_bind <- function(x){
   #rownumber/input value if it finds a SPELLING value in the check variable
   #Might even be better to implement at a higher level, the user level?
   # -> No, would make things messy
+  
+  #For each doi, checker
   
   split_x <- lapply(split_x, checker)
   
