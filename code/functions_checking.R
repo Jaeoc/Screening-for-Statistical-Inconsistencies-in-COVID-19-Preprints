@@ -9,15 +9,45 @@
 
 
 #********************************************************************************
+#Helper functions----
+#********************************************************************************
+
+#helper function to ensure we compare computed and reported values with the same
+#number of decimals
+#takes as input a numeric value as a character and outputs number of decimals 
+get_rounding_decimals <- function(reported){ 
+  #NB! Assumes the "reported" column was read in as a character variable!
+  
+  if(!grepl("[[:digit:]]", reported)) stop("No numeric value in 'reported' column")
+  
+  a <- strsplit(reported, "\\.")[[1]]
+  #split by decimal point, if there is one
+  
+  if(length(a) == 2) nchar(a[2]) else 0
+  #if there's a decimal,  we get two vectors from the strsplit
+  #if so count characters after decimal, else if no decimal return 0
+}
+
+
+#Helper function for 'check_p' function below
+#transform correlation to t-statistic
+r2t <- function(r, df){
+  r / (sqrt((1 - r^2) / df))
+}
+#********************************************************************************
 #Internal functions----
 #********************************************************************************
+
 #All functions in this section output a TRUE/FALSE value
 #except the small helper function r2t which outputs a t-statistic
 
-
 #Check reported percentage
 check_percentage <- function(percentage, numerator, denominator){
-  abs(percentage - numerator / denominator * 100) <= 0.1 #use tolerance == 0.1% to account for rounding errors
+  decimals <- get_rounding_decimals(percentage)
+  computed <- numerator / denominator * 100
+  
+  #compare computed and reported value with same number of decimals
+  percentage - round(computed, decimals) == 0
 }
 
 
@@ -49,7 +79,9 @@ check_test_diag <- function(percentage, tp, tn, fp, fn,
     coded <- tn/(tn+fn) # Negative predictive value
   }
   
-  abs(percentage - coded*100) <= 0.1 #use tolerance == 0.1% to account for rounding errors
+  #compare computed and reported value with same number of decimals
+  decimals <- get_rounding_decimals(percentage)
+  percentage - round(coded*100, decimals) == 0
   
 }
 
@@ -98,16 +130,13 @@ check_ratio <- function(reported, n11, n12, n21, n22,
     computed <- p1 - p2
   }
   
-  abs(reported - computed) <= 0.01
-  #check that rounding is correct to the second decimal
+  #compare computed and reported value with same number of decimals
+  decimals <- get_rounding_decimals(reported)
+  reported - round(computed, decimals) == 0
 }
 
 
-#Helper function for 'check_p' function below
-#transform correlation to t-statistic
-r2t <- function(r, df){
-  r / (sqrt((1 - r^2) / df))
-}
+
 
 ### Function to check the reported p-value based on the reported test statistic and 
 # degrees of freedom
@@ -180,9 +209,9 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   }
   # Check and return ------------------------------------------------------------------
   
-  abs(reported_p - computed) <= 0.001 
-  #use tolerance == 0.001 to account for rounding errors
-  #in other words, check that rounding to the third decimal is correct but not beyond
+  #compare computed and reported value with same number of decimals
+  decimals <- get_rounding_decimals(reported_p)
+  reported_p - round(computed, decimals) == 0 
 }
 
 
@@ -258,6 +287,12 @@ split_check_bind <- function(x){
   # TRACE BACK WHERE type_stat WAS MISSPELLED IN CASE OF A FOR LOOP. THAT IS, 
   # WE CAN THROW THE WARNING THAT IT IS IN PREPRINT NUMBER X, LINE Y, AND IT WAS
   # MISSPELLED AS "pec_ratio". THIS CANNOT EASILY BE DONE WITH lapply().
+  
+    #EDIT Anton: can be done by adding a line above the first split_x exctracting
+  #preprint ID, and another line behind do.call that prints a warning and
+  #rownumber/input value if it finds a SPELLING value in the check variable
+  #Might even be better to implement at a higher level, the user level?
+  # -> No, would make things messy
   
   split_x <- lapply(split_x, checker)
   

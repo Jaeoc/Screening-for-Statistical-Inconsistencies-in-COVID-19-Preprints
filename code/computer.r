@@ -22,18 +22,20 @@ codebook_files <- list.files("../data/pilot_codebooks", full.names = TRUE)
 #Change "pilot_codebooks" to relevant folder later
 
 #Read completed codebooks
-preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1, stringsAsFactors = FALSE)
-#NB, in type_stat column an empty cell is read as "" but in all other columns as NA 
-#If we don't use stringsAsFactors = FALSE this leads to problems. Maybe worth
-#fixing when updating the excel template
+preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1,
+                    stringsAsFactors = FALSE, na.strings = c(""),
+                    colClasses = c(reported = "character"))
+#a) Reading in the reported column as a character is important, because it 
+#allows us to compare our computed value to the specificity used in the preprint
+#(i.e., to the same decimal). 
+#b) If we don't specify na.strings then for character vectors the "" is not read as NA
 
-#Drop rows with only Nas. Because some empty cells not coded as NA must can't use
-#preprints <- lapply(preprints, function(x) x[!rowSums(is.na(x)) == ncol(x),]) 
-#But must use something like the below (which may be a little less robust)
-preprints <- lapply(preprints, function(x)  x[!is.na(x$page),]) #drop empty rows
+
+#Drop rows with only NAs.
+preprints <- lapply(preprints, function(x) x[!rowSums(is.na(x)) == ncol(x),])
   
 
-#Check values
+#Check reported values
 preprint_results <- lapply(preprints, split_check_bind)
 
 #drop empty columns for more readable results. 
