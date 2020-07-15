@@ -33,7 +33,15 @@ preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1,
 
 #Drop rows with only NAs.
 preprints <- lapply(preprints, function(x) x[!rowSums(is.na(x)) == ncol(x),])
-  
+
+#Get preprint IDs 
+preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and . ('.' because of .csv)
+preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
+
+#Append preprint IDs to each dataframe. NB! must be done before applying the split_check_bind function
+for(preprint in seq_along(preprint_ID)){
+  preprints[[preprint]]$ID <- preprint_ID[preprint]
+}
 
 #Check reported values
 preprint_results <- lapply(preprints, split_check_bind)
@@ -44,14 +52,7 @@ preprint_results <- lapply(preprints, split_check_bind)
 #Better to leave for now
 #preprint_results <- lapply(preprint_results, function(x) x[,!colSums(is.na(x)) == nrow(x)])
 
-#Get preprint IDs 
-preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and . ('.' because of .csv)
-preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
 
-#Append preprint IDs to each dataframe
-for(preprint in seq_along(preprint_ID)){
-  preprint_results[[preprint]]$ID <- preprint_ID[preprint]
-}
 
 #Collate and save dataset for analysis
 preprint_results <- do.call(rbind, preprint_results)

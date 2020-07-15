@@ -14,6 +14,7 @@ source("functions_checking.r")
 
 dat <- readxl::read_excel("../fake_test_data_0001.xlsx", skip = 1)
 dat <- dat[!is.na(dat$page),] #drop empty rows, temporary
+dat$reported <- as.character(dat$reported)
 
 #********************************************************************************
 #Tests----

@@ -269,44 +269,48 @@ checker <- function(split_x){
                              two_tailed = TRUE)
     
   }else { #If misspelt, see preprint[[5]], which wrote type_stat = "pec_ratio".
-    warning("type_stat misspelt in at least one case, examine 'check' variable for 'SPELLING' value")
-    split_x$check <- "SPELLING" 
+    split_x$check <- "SPELLING" #the function split_check_bind will throw a warning
   }
   
   split_x #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
   
 }
 
-#temporary
-preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and . ('.' because of .csv)
-preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
 
 #Wrapper function to the above to make it applicable to multiple types of statistics
-split_check_bind <- function(x, preprint_ID){ 
+#And provide warning when type_stat was misspelt
+split_check_bind <- function(x){ 
   #takes as input a dataframe with one or multiple types of type_stat to check
   
-  split_x <- split(x, x$type_stat)
+  if(!any(colnames(x) == "ID")) stop("Append column 'ID' to dataframe before running this function")
   
-  ### ROBBIE: ALTHOUGH I REALLY LIKE THE lapply() IMPLEMENTATION HERE, IT MIGHT 
-  # BE BETTER TO USE A FOR LOOP FOR THIS. THE REASON IS THAT WE CAN VERY QUICKLY 
-  # TRACE BACK WHERE type_stat WAS MISSPELLED IN CASE OF A FOR LOOP. THAT IS, 
-  # WE CAN THROW THE WARNING THAT IT IS IN PREPRINT NUMBER X, LINE Y, AND IT WAS
-  # MISSPELLED AS "pec_ratio". THIS CANNOT EASILY BE DONE WITH lapply().
+  #Temporary row order variable since the rbind below changes the order
+  x$input_row_order <- formatC(1:nrow(x), #gives numbers of shape 01, 02 (for more robustness)
+                               width = 2, format = "d", flag = "0")
   
-    #EDIT Anton: can be done by adding a line above the first split_x exctracting
-  #preprint ID, and another line behind do.call that prints a warning and
-  #rownumber/input value if it finds a SPELLING value in the check variable
-  #Might even be better to implement at a higher level, the user level?
-  # -> No, would make things messy
-  
+  #split, apply function, recombine into dataframe
+  split_x <- split(x, x$type_stat) 
   split_x <- lapply(split_x, checker)
-  p
-  names(split_x) <- NULL # To avoid automatically assigning row names
-  do.call(rbind, split_x)
+  out <- do.call(rbind, split_x)
+  
+  #cleanup
+  out <- out[order(out$input_row_order),] #get back input row-order
+  out$input_row_order <- NULL #for neater output
+  row.names(out) <- NULL #rbind automatically assigns row names
+  
+  #Check for any misspelt type_stat input
+  spelling_mistake <- which(out$check == "SPELLING")
+  
+  if(length(spelling_mistake) > 0)
+    warning(paste0("Spelling mistake in preprint ID ", out$ID[1], ": type_stat misspelt as '",
+                   out$type_stat[spelling_mistake], "'", " in line ", spelling_mistake,
+                   collapse = "\n")) #collapse \n to make each warning a new row
+  
   
   #outputs the same dataframe but with a column called "check" {TRUE/FALSE} appended
+  out 
+  
 }
-
 
 #********************************************************************************
 #Other functions----
