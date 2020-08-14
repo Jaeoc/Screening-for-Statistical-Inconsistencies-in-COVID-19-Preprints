@@ -26,8 +26,38 @@ get_rounding_decimals <- function(reported){
   #if there's a decimal,  we get two vectors from the strsplit 
   #if so count characters after decimal, else if no decimal return 0
   
-  unlist(decimals) #return vector of decimals per reported value
+  unlist(decimals) #return vector with # decimals per reported value
 }
+
+
+#helper function to round values ending in 5 up
+round_up = function(value, decimals) { #rounds up .5, function from: https://stackoverflow.com/questions/12688717/round-up-from-5
+  posneg = sign(value)
+  z = abs(value)*10^decimals
+  z = z + 0.5 + sqrt(.Machine$double.eps)
+  z = trunc(z)
+  z = z/10^decimals
+  z*posneg
+}
+
+#Helper function to compare computed and reported results with correct rounding
+#Many people round 2.5 to 3, but many computer programs to 2
+#we thus round values ending in 5 both up and down and consider both correct
+compare_reported <- function(reported, computed){
+  
+  decimals <- get_rounding_decimals(reported)
+  
+  ifelse(substr(computed, nchar(computed), nchar(computed)) == "5",{ #ifelse because vectorization
+    #if a value ends in 5
+    #round both up and down, and if either one matched reported result consider correct
+    #note that numeric e.g., 2.500 is read by R as 2.5
+    down <- as.numeric(reported) - round(computed, decimals) == 0
+    up <- as.numeric(reported) - round_up(computed, decimals) == 0
+    down + up > 0 #check if at least one rounding is correct
+    
+  }, as.numeric(reported) - round(computed, decimals) == 0)
+}
+  
 
 
 #Helper function for 'check_p' function below
@@ -35,6 +65,8 @@ get_rounding_decimals <- function(reported){
 r2t <- function(r, df){
   r / (sqrt((1 - r^2) / df))
 }
+
+
 #********************************************************************************
 #Internal functions----
 #********************************************************************************
@@ -45,11 +77,10 @@ r2t <- function(r, df){
 
 #Check reported percentage
 check_percentage <- function(percentage, numerator, denominator){
-  decimals <- get_rounding_decimals(percentage)
   computed <- numerator / denominator * 100
   
   #compare computed and reported value with same number of decimals
-  as.numeric(percentage) - round(computed, decimals) == 0
+  compare_reported(percentage, computed)
 }
 
 
@@ -82,8 +113,8 @@ check_test_diag <- function(percentage, tp, tn, fp, fn,
   }
   
   #compare computed and reported value with same number of decimals
-  decimals <- get_rounding_decimals(percentage)
-  as.numeric(percentage) - round(coded*100, decimals) == 0
+  coded <- coded*100 #turn into percentage instead of proportion
+  compare_reported(percentage, coded)
   
 }
 
@@ -133,8 +164,7 @@ check_ratio <- function(reported, n11, n12, n21, n22,
   }
   
   #compare computed and reported value with same number of decimals
-  decimals <- get_rounding_decimals(reported)
-  as.numeric(reported) - round(computed, decimals) == 0
+  compare_reported(reported, computed)
 }
 
 
@@ -164,14 +194,9 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   #     - two_tailed: do you want to calculate the two-tailed p-value
   
   
-  #EDIT: we can't check number of decimals automatically because is set to
-  #consistent across a column. May just have to decide on a tolerance in the
-  #final output p-value
-  
-  #EDIT: instead of having checks of the DFs here, it is better to have them in
-  #the wrapper function "checker"
-  
   ### ROBBIE: WE MAY WANT TO CHANGE THIS FUNCTION TO AVOID USING t AND F AS OBJECTS.
+  ### Anton: has to be easy for coders to input, I would be inclined to keep them as
+  #is despite the bad coding practices of it.
   
   # compute p-values ---------------------------------------------------------
   
@@ -212,8 +237,7 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   # Check and return ------------------------------------------------------------------
   
   #compare computed and reported value with same number of decimals
-  decimals <- get_rounding_decimals(reported_p)
-  as.numeric(reported_p) - round(computed, decimals) == 0 
+  compare_reported(reported_p, computed)
 }
 
 
