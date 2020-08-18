@@ -189,12 +189,12 @@ check_ratio <- function(reported, n11, n12, n21, n22,
 
 ### Function to check the reported p-value based on the reported test statistic and 
 # degrees of freedom
-check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
+check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
                     reported_p,
                     test_stat,
                     df1 = NA,
                     df2 = NA,
-                    two_tailed = TRUE)
+                    two_tailed = FALSE)
 {
   ### Arguments:
   #     - test_type: the type of test you want to calculate the p-value for
@@ -208,22 +208,18 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
   #     - test_stat: the test statistic
   #     - df1: degrees of freedom related to the design
   #     - df2: degrees of freedom related to the observations
-  #     - two_tailed: do you want to calculate the two-tailed p-value
+  #     - two_tailed: assume all tests were two-tailed?
   
-  
-  ### ROBBIE: WE MAY WANT TO CHANGE THIS FUNCTION TO AVOID USING t AND F AS OBJECTS.
-  ### Anton: has to be easy for coders to input, I would be inclined to keep them as
-  #is despite the bad coding practices of it.
   
   # compute p-values ---------------------------------------------------------
   
   # for each test, calculate the p-value that belongs to the observed test
   
-  if(test_type == "t"){
+  if(test_type == "t_test"){
     
     computed <- pt(-1 * abs(test_stat), df2)
     
-  } else if(test_type == "F"){
+  } else if(test_type == "F_test"){
     
     computed <- pf(test_stat, df1, df2, lower.tail = FALSE)
     
@@ -242,21 +238,29 @@ check_p <- function(test_type = c("t", "F", "z", "r", "chi2", "Q"),
     
   }
   
-  # compute two-tailed ------------------------------------------------------
-  
-  if (!is.na(computed) &
-      (test_type == "t" | test_type == "z" | test_type == "r") & 
-      two_tailed) {
-    
-    computed <- computed * 2
-    
-  }
   # Check and return ------------------------------------------------------------------
+  #Either two-tailed only (for t, z and r)
+  #or compare against both two- and one-tailed (for t, z, r)
+  #For other tests (chi2, q, F) always one-tailed (see code above)
   
-  #compare computed and reported value with same number of decimals
-  compare_reported(reported_p, computed)
-}
+  if(test_type == "t_test" | test_type == "z" | test_type == "r"){
+         if(two_tailed) { #if assuming two-tailed tests which is most common
+           
+           computed <- computed * 2 #make two-tailed
+           compare_reported(reported_p, computed)
+           
+         } else { #else allow tests to be either one- or two-tailed
+           one_tailed <- compare_reported(reported_p, computed)
+           two_tailed <- compare_reported(reported_p, computed*2)
+           one_tailed + two_tailed > 0 #check if either one-tailed or two-tailed matches reported
+         }
+    
+    } else{ #else if test_type == chi2, F or Q
+         compare_reported(reported_p, computed)
+      }
+  
 
+}
 
 #********************************************************************************
 #Wrapper functions----
@@ -296,20 +300,16 @@ checker <- function(split_x){
                                  n21 = split_x$n21, n22 = split_x$n22,
                                  ratio = split_x$type_stat[1])
     
-  }else if(split_x$type_stat[1] %in% c("t", "F", "z", "r", "chi2", "Q")){
-    
-    ### ROBBIE: ASSUMING THAT ALL P-VALUES ARE TWO-TAILED IS TRICKY. MAYBE 
-    # COMPUTING P-VALUES BOTH ONE AND TWO-TAILED AND IF BOTH ARE DIFFERENT 
-    # THEN CONCLUDING THAT IT IS INCONSISTENT.
+  }else if(split_x$type_stat[1] %in% c("t_test", "F_test", "z", "r", "chi2", "Q")){
     
     split_x$check <- check_p(test_type = split_x$type_stat[1],
                              reported_p = split_x$reported,
                              test_stat = split_x$test_stat,
                              df1 = split_x$df1,
                              df2 = split_x$df2,
-                             two_tailed = TRUE)
+                             two_tailed = FALSE)
     
-  }else { #If misspelt, see preprint[[5]], which wrote type_stat = "pec_ratio".
+  }else { #If misspelt, e.g., see pilot preprint[[5]], which wrote type_stat = "pec_ratio".
     split_x$check <- "SPELLING" #the function split_check_bind will throw a warning
   }
   

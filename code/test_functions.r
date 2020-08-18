@@ -20,7 +20,7 @@ dat$reported <- as.character(dat$reported)
 #Tests----
 #********************************************************************************
 
-
+ 
 dat_split <- split(dat, dat$type_stat)
 
 
@@ -81,6 +81,34 @@ test_that("ratios correctly checked",{
   
   results <- checker(dat_split$risk_diff)
   expect_equal(results$check[1], TRUE)
+  expect_equal(results$check[2], FALSE)
+})
+
+
+test_that("p-values checked", {
+  results <- checker(dat_split$t_test)
+  expect_equal(results$check[1], TRUE) #two-tailed
+  expect_equal(results$check[2], TRUE) #one-tailed
+  expect_equal(results$check[3], FALSE) 
+  
+  results <- checker(dat_split$F_test)
+  expect_equal(results$check[1], TRUE) 
+  expect_equal(results$check[2], FALSE) 
+  
+  results <- checker(dat_split$z)
+  expect_equal(results$check[1], TRUE) 
+  expect_equal(results$check[2], FALSE)
+  
+  results <- checker(dat_split$r)
+  expect_equal(results$check[1], TRUE) 
+  expect_equal(results$check[2], FALSE)
+  
+  results <- checker(dat_split$chi2)
+  expect_equal(results$check[1], TRUE) 
+  expect_equal(results$check[2], FALSE)
+  
+  results <- checker(dat_split$Q)
+  expect_equal(results$check[1], TRUE) 
   expect_equal(results$check[2], FALSE)
 })
 
