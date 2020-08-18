@@ -37,6 +37,8 @@ out <- data.frame(pp_ID = numeric(), title = character(), doi = character(),
 
 set.seed(12820)
 
+### Sample a bit more draws to make sure that duplicates with only one case in a
+# stratum can be replace by another case
 for (i in 1:(draws+round(draws*0.1)))
 {
   
