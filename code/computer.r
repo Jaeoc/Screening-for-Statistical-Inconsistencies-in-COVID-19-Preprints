@@ -11,7 +11,7 @@
 #********************************************************************************
 
 #Checking functions
-source("functions_checking.R") 
+source("functions.R") 
 
 #********************************************************************************
 #Run checks and save results----
@@ -39,8 +39,10 @@ preprint_ID <- unlist(strsplit(codebook_files, split = "_|\\.")) #split by _ and
 preprint_ID <- grep("[[:digit:]]", preprint_ID, value = TRUE) #get IDs, assumes no other numbers in file path
 
 #Append preprint IDs to each dataframe. NB! must be done before applying the split_check_bind function
+#This enables informative warning messages if something is misspelt
 for(preprint in seq_along(preprint_ID)){
   preprints[[preprint]]$ID <- preprint_ID[preprint]
+  names(preprints)[preprint] <- paste0("ID_", preprint_ID[preprint]) #also add list-name for easier back-tracking
 }
 
 #Check reported values
