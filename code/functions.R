@@ -32,12 +32,29 @@ get_rounding_decimals <- function(reported){
 
 #helper function to round values ending in 5 up
 round_up = function(value, decimals) { #rounds up .5, function from: https://stackoverflow.com/questions/12688717/round-up-from-5
+  #value = numeric value to round
+  #decimals = numeric number of decimals to round to
   posneg = sign(value)
   z = abs(value)*10^decimals
   z = z + 0.5 + sqrt(.Machine$double.eps)
   z = trunc(z)
   z = z/10^decimals
   z*posneg
+}
+
+#helper function to round values ending in 5 down
+#this is necessary because of representation errors in certain values
+#compare round(0.2225, 3) and round(0.2235, 3)
+round_down <- function(value, decimals){
+  #NB! this function only works for values ending in 5! it will round values with higher decimals down incorrectly.
+  #value = numeric value to round
+  #decimals = numeric number of decimals to round to
+ posneg <- sign(value)
+ z <- abs(value)*10^decimals
+ z <-  z + sqrt(.Machine$double.eps)
+ z <-  trunc(z)
+ z <-  z/10^decimals
+ z*posneg
 }
 
 #Helper function to compare computed and reported results with correct rounding
@@ -51,7 +68,7 @@ compare_reported <- function(reported, computed){
     #if a value ends in 5
     #round both up and down, and if either one matched reported result consider correct
     #note that numeric e.g., 2.500 is read by R as 2.5
-    down <- as.numeric(reported) - round(computed, decimals) == 0
+    down <- as.numeric(reported) - round_down(computed, decimals) == 0
     up <- as.numeric(reported) - round_up(computed, decimals) == 0
     down + up > 0 #check if at least one rounding is correct
     

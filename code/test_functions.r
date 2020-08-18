@@ -86,10 +86,12 @@ rounding_values <- c(0,
 rounding_values <- as.character(rounding_values)
 
 test_that("Rounding down and up from .5", {
-  expect_equal(round(2.5, 0), 2)
   expect_equal(round_up(2.5, 0), 3)
+  expect_equal(round_down(0.0003445, 6), 0.000344) #these values rounded up with round() because of representation error
+  expect_equal(round_down(0.2235, 3), 0.223) #on my machine
   
 })
+
 
 
 test_that("Rounding decimals function output", {
