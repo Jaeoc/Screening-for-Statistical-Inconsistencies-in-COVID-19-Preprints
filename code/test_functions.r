@@ -70,6 +70,20 @@ test_that("Test_diag basic computations", {
   
 })
 
+test_that("ratios correctly checked",{
+  results <- checker(dat_split$odds_ratio)
+  expect_equal(results$check[1], TRUE)
+  expect_equal(results$check[2], FALSE)
+  
+  results <- checker(dat_split$risk_ratio)
+  expect_equal(results$check[1], TRUE)
+  expect_equal(results$check[2], FALSE)
+  
+  results <- checker(dat_split$risk_diff)
+  expect_equal(results$check[1], TRUE)
+  expect_equal(results$check[2], FALSE)
+})
+
 #Rounding
 rounding_values <- c(0,
                      0.1,
