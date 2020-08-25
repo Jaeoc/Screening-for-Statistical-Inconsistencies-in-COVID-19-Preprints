@@ -17,11 +17,11 @@ dat <- subset(dat, dat$nr_authors > 0)
 
 ### Create a variable indicating the month a preprint was published
 dates <- as.POSIXct(dat$date_upl, format = "%d-%m-%y") 
-dat$month <- format(dates, "%B")
+dat$month <- as.numeric(format(dates, "%m"))
 
 ### Create a categorical variable of the number of authors of a preprint
-dat$cat_nr_authors <- as.character(cut(dat$nr_authors, 
-                                       breaks = c(0, 1, 2, 3, 10, 200)))
+dat$cat_nr_authors <- as.numeric(cut(dat$nr_authors, 
+                                       breaks = c(0, 1, 2, 10, 200)))
 
 draws <- 1000 # Sample size
 
@@ -42,7 +42,7 @@ set.seed(12820)
 for (i in 1:(draws+round(draws*0.1)))
 {
   
-  cat("progress = ", i/draws*100, "%", fill = TRUE)
+  cat("progress = ", i/(draws+draws*0.1)*100, "%", fill = TRUE)
   
   ### Create a subset of the data based on a sampled preprint server
   tab_site <- as.data.frame(table(site = dat$site))
