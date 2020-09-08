@@ -60,7 +60,7 @@ round_down <- function(value, decimals){
 #Helper function to compare computed and reported results with correct rounding
 #Many people round 2.5 to 3, but many computer programs to 2
 #we thus round values ending in 5 both up and down and consider both correct
-compare_reported <- function(reported, computed){
+compare_reported_equivalence <- function(computed, reported){
   
   decimals <- get_rounding_decimals(reported)
   
@@ -75,7 +75,20 @@ compare_reported <- function(reported, computed){
   }, as.numeric(reported) - round(computed, decimals) == 0)
 }
   
+compare_reported_nonequivalence <- function(computed, reported, comparison){
+  #This function will only be applied to comparisons %in% c(">", "<")
+    ifelse(comparison == "<",
+           computed < as.numeric(reported),
+           computed > as.numeric(reported))
+  
+}
 
+compare_reported <- function(computed, reported, comparison){
+  
+  ifelse(is.na(comparison) | comparison == "=",
+         compare_reported_equivalence(computed, reported), #if comparison is =
+         compare_reported_nonequivalence(computed, reported, comparison)) #if comparison is <>
+}
 
 #Helper function for 'check_p' function below
 #transform correlation to t-statistic
@@ -93,18 +106,19 @@ r2t <- function(r, df){
 #converted into a numeric value before comparison
 
 #Check reported percentage
-check_percentage <- function(percentage, numerator, denominator){
+check_percentage <- function(percentage, numerator, denominator, comparison){
   computed <- numerator / denominator * 100
   
   #compare computed and reported value with same number of decimals
-  compare_reported(percentage, computed)
+  compare_reported(computed, percentage, comparison)
 }
 
 
 #Check reported Accuracy, Sensitivity, Specificity, or
 #positive/negative predictive values
 check_test_diag <- function(percentage, tp, tn, fp, fn,
-                            which_diag = c("accu", "sens", "spec",  "ppv", "npv")){
+                            which_diag = c("accu", "sens", "spec",  "ppv", "npv"),
+                            comparison){
   
   
   ### Arguments:
@@ -131,7 +145,7 @@ check_test_diag <- function(percentage, tp, tn, fp, fn,
   
   #compare computed and reported value with same number of decimals
   coded <- coded*100 #turn into percentage instead of proportion
-  compare_reported(percentage, coded)
+  compare_reported(coded, percentage, comparison)
   
 }
 
@@ -148,7 +162,8 @@ check_sample_size <- function(total_sample, subgroup_cols, dat){
 
 #Function to check reported ratios against computed
 check_ratio <- function(reported, n11, n12, n21, n22,
-                        ratio = c("odds_ratio", "risk_ratio", "risk_diff"))
+                        ratio = c("odds_ratio", "risk_ratio", "risk_diff"),
+                        comparison)
 {
   ### ROBBIE: NOW USING n11, n12, n21, AND n22 INSTEAD OF a, b, c, AND d. THIS 
   # IS BETTER BECAUSE c ALSO REFERS TO CONCATINATING OBJECTS
@@ -181,7 +196,7 @@ check_ratio <- function(reported, n11, n12, n21, n22,
   }
   
   #compare computed and reported value with same number of decimals
-  compare_reported(reported, computed)
+  compare_reported(computed, reported, comparison)
 }
 
 
@@ -194,7 +209,8 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
                     test_stat,
                     df1 = NA,
                     df2 = NA,
-                    two_tailed = FALSE)
+                    two_tailed = FALSE,
+                    comparison)
 {
   ### Arguments:
   #     - test_type: the type of test you want to calculate the p-value for
@@ -209,6 +225,7 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
   #     - df1: degrees of freedom related to the design
   #     - df2: degrees of freedom related to the observations
   #     - two_tailed: assume all tests were two-tailed?
+  #     - comparison: <> NA (NA == '=')
   
   
   # compute p-values ---------------------------------------------------------
@@ -244,19 +261,19 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
   #For other tests (chi2, q, F) always one-tailed (see code above)
   
   if(test_type == "t_test" | test_type == "z" | test_type == "r"){
-         if(two_tailed) { #if assuming two-tailed tests which is most common
+         if(two_tailed) { #if assuming all test are two-tailed tests
            
            computed <- computed * 2 #make two-tailed
-           compare_reported(reported_p, computed)
+           compare_reported(computed, reported_p, comparison)
            
          } else { #else allow tests to be either one- or two-tailed
-           one_tailed <- compare_reported(reported_p, computed)
-           two_tailed <- compare_reported(reported_p, computed*2)
+           one_tailed <- compare_reported(computed, reported_p, comparison)
+           two_tailed <- compare_reported(computed*2, reported_p, comparison)
            one_tailed + two_tailed > 0 #check if either one-tailed or two-tailed matches reported
          }
     
-    } else{ #else if test_type == chi2, F or Q
-         compare_reported(reported_p, computed)
+    } else{ #else if test_type == chi2, F or Q (one-tailed)
+      compare_reported(computed, reported_p, comparison)
       }
   
 
@@ -275,7 +292,8 @@ checker <- function(split_x){
     
     split_x$check <- check_percentage(percentage = split_x$reported,
                                       numerator = split_x$num,
-                                      denominator = split_x$denom)
+                                      denominator = split_x$denom,
+                                      comparison = split_x$comparison)
     
     
   } else if(split_x$type_stat[1] %in% c("sample_size", "marginals")){ #needs to be improved so we can separate the two in the report
@@ -291,14 +309,16 @@ checker <- function(split_x){
                                      tn = split_x$tn,
                                      fp = split_x$fp,
                                      fn = split_x$fn,
-                                     which_diag = split_x$type_stat[1])
+                                     which_diag = split_x$type_stat[1],
+                                     comparison = split_x$comparison)
     
   } else if(split_x$type_stat[1] %in% c("odds_ratio", "risk_ratio", "risk_diff")){
     
     split_x$check <- check_ratio(reported = split_x$reported,
                                  n11 = split_x$n11, n12 = split_x$n12, 
                                  n21 = split_x$n21, n22 = split_x$n22,
-                                 ratio = split_x$type_stat[1])
+                                 ratio = split_x$type_stat[1],
+                                 comparison = split_x$comparison)
     
   }else if(split_x$type_stat[1] %in% c("t_test", "F_test", "z", "r", "chi2", "Q")){
     
@@ -307,7 +327,8 @@ checker <- function(split_x){
                              test_stat = split_x$test_stat,
                              df1 = split_x$df1,
                              df2 = split_x$df2,
-                             two_tailed = FALSE)
+                             two_tailed = FALSE,
+                             comparison = split_x$comparison)
     
   }else { #If misspelt, e.g., see pilot preprint[[5]], which wrote type_stat = "pec_ratio".
     split_x$check <- "SPELLING" #the function split_check_bind will throw a warning

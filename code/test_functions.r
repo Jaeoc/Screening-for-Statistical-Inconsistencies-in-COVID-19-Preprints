@@ -145,10 +145,34 @@ test_that("Rounding decimals function output", {
 })
 
 test_that("Comparing computed/reported rounding", {
-  expect_is(compare_reported(reported = "0.23", computed = 0.23), "logical") #check output type
-  expect_equal(compare_reported(reported = "0.23", computed = 0.23), TRUE)
-  expect_equal(compare_reported(reported = "0.23", computed = 0.235), TRUE) #both round up and round down
-  expect_equal(compare_reported(reported = "0.23", computed = 0.225), TRUE) #should give correct
-  expect_equal(compare_reported(reported = "1.23", computed = 1.23234234), TRUE)
-  expect_equal(compare_reported(reported = "0.237", computed = 0.2353), FALSE)
+  expect_is(compare_reported_equivalence(reported = "0.23", computed = 0.23), "logical") #check output type
+  expect_equal(compare_reported_equivalence(reported = "0.23", computed = 0.23), TRUE)
+  expect_equal(compare_reported_equivalence(reported = "0.23", computed = 0.235), TRUE) #both round up and round down
+  expect_equal(compare_reported_equivalence(reported = "0.23", computed = 0.225), TRUE) #should give correct
+  expect_equal(compare_reported_equivalence(reported = "1.23", computed = 1.23234234), TRUE)
+  expect_equal(compare_reported_equivalence(reported = "0.237", computed = 0.2353), FALSE)
 })
+
+
+test_that("compare_reported", {
+  expect_equal(compare_reported(computed = 0.21, reported = "0.2", comparison = NA), TRUE)
+  expect_equal(compare_reported(computed = 0.21, reported = "0.2", comparison = "="), TRUE)
+  expect_equal(compare_reported(computed = 0.19, reported = "0.2", comparison = "<"), TRUE)
+  expect_equal(compare_reported(computed = 0.19, reported = "0.2", comparison = ">"), FALSE)
+  expect_equal(compare_reported(computed = 0.19, reported = "0.2", comparison = "<"), TRUE)
+  expect_equal(compare_reported(computed = 0.21, reported = "0.2", comparison = "<"), FALSE)
+  
+  
+})
+
+dat_comp <- dat[!is.na(dat$comparison),]
+dat_comp$ID <- "0001"
+
+test_that("comparison signs", { #fix
+  result <- split_check_bind(dat_comp)
+  expect_equal(result$check[1], TRUE) # <
+  expect_equal(result$check[2], TRUE) # <
+  expect_equal(result$check[3], TRUE) #>
+  
+})
+
