@@ -18,12 +18,13 @@ source("functions.R")
 #********************************************************************************
 
 #Get file paths to completed codebooks
-codebook_files <- list.files("../data/pilot_codebooks", full.names = TRUE)
+codebook_files <- list.files("../data/pilot_codebooks", pattern = ".csv",
+                             full.names = TRUE)
 #Change "pilot_codebooks" to relevant folder later
 
 #Read completed codebooks
 preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1,
-                    stringsAsFactors = FALSE, na.strings = c(""),
+                    stringsAsFactors = FALSE, na.strings = c(""), 
                     colClasses = c(reported = "character"))
 #a) Reading in the reported column as a character is important, because it 
 #allows us to compare our computed value to the specificity used in the preprint
