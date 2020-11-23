@@ -139,7 +139,7 @@ test_that("Rounding down and up from .5", {
 test_that("Rounding decimals function output", {
   out <- get_rounding_decimals(rounding_values)
   
-  expect_is(out, "numeric")
+  expect_is(out, "numeric") #numeric because applied to vector
   expect_length(out, length(rounding_values))
   
 })

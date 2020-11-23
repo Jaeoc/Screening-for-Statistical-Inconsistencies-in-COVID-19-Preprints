@@ -18,8 +18,9 @@
 get_rounding_decimals <- function(reported){ 
   #NB! Assumes the "reported" column was read in as a character variable!
   
-  a <- strsplit(reported, "\\.")
+  a <- strsplit(reported, "\\.") 
   #split by decimal point, if there is one
+  #NB! in csv2 files, a decimal point is a comma and not a dot
   
   decimals <- lapply(a, function(x) if(length(x) == 2) nchar(x[2]) else 0)
   #the lapply is just to vectorize the function so it applies to each reported value
@@ -345,6 +346,11 @@ split_check_bind <- function(x){
   #takes as input a dataframe with one or multiple types of type_stat to check
   
   if(!any(colnames(x) == "ID")) stop("Append column 'ID' to dataframe before running this function")
+  
+  #If someone saves their .csv as .csv2 we have ',' instead of '.', which will throw errors
+  #this can only affect two columns. Test_stat column must be as numeric and reported as character
+  x$reported <- gsub(pattern = ",",replacement = ".", x = x$reported)
+  x$test_stat <- as.numeric(gsub(pattern = ",",replacement = ".", x = x$test_stat))
   
   #Temporary row order variable since the rbind below changes the order
   x$input_row_order <- formatC(1:nrow(x), #gives numbers of shape 01, 02 (for more robustness)

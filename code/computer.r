@@ -13,19 +13,28 @@
 #Checking functions
 source("functions.R") 
 
+#Helper function to read in csv files whether separated by , or ;
+#inspired from: https://stackoverflow.com/questions/33417242/how-to-check-if-csv-file-has-a-comma-or-a-semicolon-as-separator
+read_csv1_and2 <- function(csv_file, ...){
+  line1 <- readLines(csv_file, n = 1)
+  if(grepl(";", line1)) read.csv2(csv_file, ..., dec = ",") else read.csv(csv_file, ...)
+}
 #********************************************************************************
 #Run checks and save results----
 #********************************************************************************
 
-#Get file paths to completed codebooks
-codebook_files <- list.files("../data/pilot_codebooks", pattern = ".csv",
+#Change "." to relevant folder later
+codebook_files <- list.files(".", pattern = ".csv",
                              full.names = TRUE)
-#Change "pilot_codebooks" to relevant folder later
+
+codebook_files <- grep(pattern = "Anton",x = codebook_files, value = TRUE)
+codebook_files <- grep(pattern = "robbie", x = codebook_files, value = TRUE)
 
 #Read completed codebooks
-preprints <- lapply(codebook_files, read.csv, header = TRUE, skip = 1,
+preprints <- lapply(codebook_files, read_csv1_and2, header = TRUE, skip = 1,
                     stringsAsFactors = FALSE, na.strings = c(""), 
                     colClasses = c(reported = "character"))
+
 #a) Reading in the reported column as a character is important, because it 
 #allows us to compare our computed value to the specificity used in the preprint
 #(i.e., to the same decimal). 
@@ -59,4 +68,5 @@ preprint_results <- lapply(preprints, split_check_bind)
 
 #Collate and save dataset for analysis
 preprint_results <- do.call(rbind, preprint_results)
-write.csv(preprint_results, "../data/checked_results.csv", row.names = FALSE)
+save_name <- "pilot3_robbie.csv"
+write.csv(preprint_results, save_name, row.names = FALSE)
