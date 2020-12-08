@@ -222,8 +222,8 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
   #        * Q = Q-test
   #     - reported_p: reported p-value
   #     - test_stat: the test statistic
-  #     - df1: degrees of freedom related to the design
-  #     - df2: degrees of freedom related to the observations
+  #     - df1: First observed degrees of freedom (for F-test: related to the design) [NB! Adopted so that coders always extract df1 if only 1 DF)
+  #     - df2: Second observed degrees of freedom (for F-test: related to the observations)
   #     - two_tailed: assume all tests were two-tailed?
   #     - comparison: <> NA (NA == '=')
   
@@ -234,7 +234,7 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
   
   if(test_type == "t_test"){
     
-    computed <- pt(-1 * abs(test_stat), df2)
+    computed <- pt(-1 * abs(test_stat), df1)
     
   } else if(test_type == "F_test"){
     
@@ -246,8 +246,8 @@ check_p <- function(test_type = c("t_test", "F_test", "z", "r", "chi2", "Q"),
     
   } else if(test_type == "r"){
     
-    t <- r2t(test_stat, df2)
-    computed <- pt(-1 * abs(t), df2)
+    t <- r2t(test_stat, df1)
+    computed <- pt(-1 * abs(t), df1)
     
   } else if(test_type == "chi2" | test_type == "Q"){
     
