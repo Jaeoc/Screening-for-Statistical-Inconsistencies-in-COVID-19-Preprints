@@ -22,13 +22,12 @@ read_csv1_and2 <- function(csv_file, ...){
 #********************************************************************************
 #Run checks and save results----
 #********************************************************************************
+#Note: if multiple coder have coded the same file for pilot testing, these must be loaded separately
+#e.g., by adding codebook_files <- grep(pattern = "MN", x = codebook_files, value = TRUE)
 
 #Change "." to relevant folder later
 codebook_files <- list.files(".", pattern = ".csv",
                              full.names = TRUE)
-
-codebook_files <- grep(pattern = "Anton",x = codebook_files, value = TRUE)
-codebook_files <- grep(pattern = "robbie", x = codebook_files, value = TRUE)
 
 #Read completed codebooks
 preprints <- lapply(codebook_files, read_csv1_and2, header = TRUE, skip = 1,
@@ -64,9 +63,15 @@ preprint_results <- lapply(preprints, split_check_bind)
 #Better to leave for now
 #preprint_results <- lapply(preprint_results, function(x) x[,!colSums(is.na(x)) == nrow(x)])
 
-
+#It because data is input in excel, it is possible to get extra columns (named e.g., x, x1 etc)
+#drop any of these so we can collate results
+coded_columns <- c('page','type_stat','reported','num','denom','tp','tn','fp','fn','comparison','test_stat','df1',
+             'df2','n11','n12','n21','n22','value1','value2','value3','value4','value5','value6','value7',
+             'value8','value9','value10','value11','value12','value13','value14','value15','value16','value17',
+             'value18','value19','value20','ID','check') 
+preprint_results <- lapply(preprint_results, function(x) x[,coded_columns])
 
 #Collate and save dataset for analysis
 preprint_results <- do.call(rbind, preprint_results)
-save_name <- "pilot3_robbie.csv"
+#save_name <- "summary_round1.csv" #add save name
 write.csv(preprint_results, save_name, row.names = FALSE)
