@@ -299,7 +299,7 @@ checker <- function(split_x){
   } else if(split_x$type_stat[1] %in% c("sample_size", "marginals")){ #needs to be improved so we can separate the two in the report
     
     split_x$check <- check_sample_size(total_sample = split_x$reported,
-                                       subgroup_cols = paste0("value", 1:20),
+                                       subgroup_cols = paste0("value", 1:40),
                                        dat = split_x)
     
   }else if(split_x$type_stat[1] %in% c("accu", "sens", "spec",  "ppv", "npv")){
